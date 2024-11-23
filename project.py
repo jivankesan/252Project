@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import soundfile as sf
 import sounddevice as sd
+import os
 from scipy.signal import resample
 
 from scipy.signal import butter, sosfilt
@@ -9,7 +10,7 @@ from scipy.signal import butter, sosfilt
 
 def process_audio(filename):
     # Task 3.1: Read a sound file and find its sampling rate
-    data, fs = sf.read(filename)
+    data, fs = sf.read("Audio/"+filename)
     print(f'Sampling rate: {fs} Hz')
 
     # Task 3.2: Check if the input sound is stereo or mono
@@ -28,7 +29,13 @@ def process_audio(filename):
     # sd.wait() 
 
     # Task 3.4: Write the sound to a new file
-    output_filename = 'output_' + filename
+    output_folder = 'outputs'
+    output_filename = os.path.join(output_folder, 'output_' + filename)
+
+    # Ensure the 'outputs' folder exists
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Write the audio file
     sf.write(output_filename, data_mono, fs)
     print(f'Sound has been written to {output_filename}')
 
@@ -144,21 +151,25 @@ def filter_with_bank(data, filters):
         filtered_signals.append(filtered_data)
     return filtered_signals
     
-def plot_filtered_signals(filtered_signals):
-        plt.figure()
-        plt.subplot(2, 1, 1)
-        plt.plot(filtered_signals[0])
-        plt.title('Lowest Frequency Channel')
-        plt.xlabel('Sample Number')
-        plt.ylabel('Amplitude')
+def plot_filtered_signals(filtered_signals, output_folder='outputs'):
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.plot(filtered_signals[0])
+    plt.title('Lowest Frequency Channel')
+    plt.xlabel('Sample Number')
+    plt.ylabel('Amplitude')
 
-        plt.subplot(2, 1, 2)
-        plt.plot(filtered_signals[-1])
-        plt.title('Highest Frequency Channel')
-        plt.xlabel('Sample Number')
-        plt.ylabel('Amplitude')
-        plt.tight_layout()
-        plt.show()
+    plt.subplot(2, 1, 2)
+    plt.plot(filtered_signals[-1])
+    plt.title('Highest Frequency Channel')
+    plt.xlabel('Sample Number')
+    plt.ylabel('Amplitude')
+
+    plt.tight_layout()
+    output_path = os.path.join(output_folder, 'filtered_signals.png')
+    plt.savefig(output_path)
+    print(f'Filtered signals plot saved to {output_path}')
+    plt.close()
         
 def rectify_signals(filtered_signals):
     rectified_signals = [np.abs(signal) for signal in filtered_signals]
@@ -172,7 +183,8 @@ def detect_envelope(rectified_signals, fs):
     envelopes = [lowpass_filter(signal, fs) for signal in rectified_signals]
     return envelopes
 
-def plot_envelopes(envelopes):
+
+def plot_envelopes(envelopes, output_folder='outputs'):
     plt.figure()
     plt.subplot(2, 1, 1)
     plt.plot(envelopes[0])
@@ -185,8 +197,12 @@ def plot_envelopes(envelopes):
     plt.title('Envelope of Highest Frequency Channel')
     plt.xlabel('Sample Number')
     plt.ylabel('Amplitude')
+
     plt.tight_layout()
-    plt.show()
+    output_path = os.path.join(output_folder, 'envelopes.png')
+    plt.savefig(output_path)
+    print(f'Envelopes plot saved to {output_path}')
+    plt.close()
     
     
 if __name__ == '__main__':
