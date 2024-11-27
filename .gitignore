@@ -1,3 +1,7 @@
 /venv
 /.venv
 /outputs
+test.py
+old.py
+debug.py
+\__pycache__
