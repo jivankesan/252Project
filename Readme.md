@@ -9,9 +9,7 @@ This repository contains the code and resources for the 252 Project.
 To install the project, follow these steps:
 
 1. Clone the repository:
-   ```sh
-   git clone https://github.com/yourusername/252Project.git
-   ```
+
 2. Navigate to the project directory:
    ```sh
    cd 252Project
