@@ -16,7 +16,7 @@ def process_audio(filename, audio_folder='Audio', output_folder='outputs'):
     data, fs = sf.read(file_path)
     print(f'Processing file: {filename}')
     print(f'Sampling rate: {fs} Hz')
-
+    
     # Check if stereo and convert to mono
     if data.ndim > 1:
         print(f'Input sound is stereo with shape {data.shape}')
@@ -37,9 +37,23 @@ def process_audio(filename, audio_folder='Audio', output_folder='outputs'):
             data_mono = resample(data_mono, int(len(data_mono) * resample_ratio))
             fs = target_fs
 
+      
     # Create output folder for plots
     plot_folder = os.path.join(output_folder, f'plots_{os.path.splitext(filename)[0]}')
-    os.makedirs(plot_folder, exist_ok=True)
+    os.makedirs(plot_folder, exist_ok=True)  
+
+    # Plot original signal
+    plt.figure()
+    plt.plot(data_mono)
+    plt.title('Original Signal')
+    plt.xlabel('Sample Number')
+    plt.ylabel('Amplitude')
+    original_plot_path = os.path.join(plot_folder, 'original_signal.png')
+    plt.savefig(original_plot_path)
+    plt.close()
+    print(f'Original signal plot saved to {original_plot_path}')
+
+
 
     # Create bandpass filter bank
     num_channels = 16
@@ -67,7 +81,7 @@ def process_audio(filename, audio_folder='Audio', output_folder='outputs'):
     combined_signal = combine_signals(modulated_signals)
 
     # Save and plot final output
-    play_and_save_audio(combined_signal, fs, output_folder, filename)
+    play_and_save_audio(combined_signal, fs, output_folder, filename, plot_folder)
 
 
 def iterate_audio_folder(audio_folder='Audio', output_folder='outputs'):
@@ -85,6 +99,71 @@ def iterate_audio_folder(audio_folder='Audio', output_folder='outputs'):
         else:
             print(f"Skipping non-audio file: {filename}")
 
+
+
+def create_log_bandpass_filters(fs, num_channels=16, f_low=100, f_high=8000, order=8, overlap_fraction=0.01):
+    """
+    Create a bank of logarithmically spaced bandpass filters with specified overlap,
+    modeling the spacing used in cochlear implants.
+
+    Args:
+        fs (int): Sampling frequency in Hz.
+        num_channels (int): Number of bandpass filters to create.
+        f_low (float): Lowest cutoff frequency in Hz.
+        f_high (float): Highest cutoff frequency in Hz.
+        order (int): Order of the Butterworth filter.
+        overlap_fraction (float): Fractional overlap between adjacent bands (0 to 1).
+
+    Returns:
+        list: A list of bandpass filters in second-order section (SOS) format.
+    """
+    # Calculate logarithmically spaced edge frequencies for the filters
+    frequencies = np.logspace(np.log10(f_low), np.log10(f_high), num_channels + 1)
+    
+    filters = []
+    for i in range(num_channels):
+        # Original band edges
+        low = frequencies[i]
+        high = frequencies[i + 1]
+        
+        # Calculate bandwidth and overlap
+        bandwidth = high - low
+        overlap = bandwidth * overlap_fraction
+        
+        # Adjust the low and high frequencies to include overlap
+        if i == 0:
+            low_adj = low
+        else:
+            low_adj = low - overlap / 2
+
+        if i == num_channels - 1:
+            high_adj = high
+        else:
+            high_adj = high + overlap / 2
+
+        # Ensure adjusted frequencies stay within the overall frequency range
+        low_adj = max(f_low, low_adj)
+        high_adj = min(f_high, high_adj)
+
+        # Normalize frequencies to the Nyquist frequency
+        low_norm = low_adj / (fs / 2)
+        high_norm = high_adj / (fs / 2)
+
+        # Check if the normalized frequencies are valid
+        if not (0 < low_norm < high_norm < 1):
+            print(f"Skipping invalid filter {i+1}: low_norm={low_norm}, high_norm={high_norm}")
+            high_norm = min(high_norm, 1 - 1e-6)
+
+        # Design the bandpass filter
+        try:
+            sos = butter(order, [low_norm, high_norm], btype='bandpass', output='sos')
+            filters.append(sos)
+            print(f"Created filter {i+1}: {low_adj:.2f} Hz to {high_adj:.2f} Hz")
+        except ValueError as e:
+            print(f"Error creating filter {i+1}: {e}")
+            continue
+
+    return filters
 
 
 def create_bandpass_filters(fs, num_channels=16, f_low=100, f_high=8000, order=8, max_overlap=200):
@@ -105,7 +184,7 @@ def create_bandpass_filters(fs, num_channels=16, f_low=100, f_high=8000, order=8
     # Calculate base frequency range for each filter
     band_width = (f_high - f_low) / num_channels
     filters = []
-
+    
     for i in range(num_channels):
         # Calculate the low and high cutoff for each filter
         low = f_low + i * band_width
@@ -208,11 +287,23 @@ def combine_signals(am_signals):
     combined_signal = np.sum(am_signals, axis=0)
     return combined_signal / np.max(np.abs(combined_signal))
 
-def play_and_save_audio(signal, fs, output_folder, filename):
+def play_and_save_audio(signal, fs, output_folder, filename, plot_folder):
     base_filename = os.path.splitext(filename)[0]
     output_audio_path = os.path.join(output_folder, f'{base_filename}_output.wav')
     sf.write(output_audio_path, signal, fs)
     print(f'Combined audio signal saved to {output_audio_path}')
+        
+    # Plot the final output signal
+    plt.figure()
+    plt.plot(signal)
+    plt.title('Combined Output Signal')
+    plt.xlabel('Sample Number')
+    plt.ylabel('Amplitude')
+    output_plot_path = os.path.join(plot_folder, f'{base_filename}_output_plot.png')
+    plt.savefig(output_plot_path)
+    plt.close()
+    print(f'Combined output signal plot saved to {output_plot_path}')
+
 
 
 if __name__ == '__main__':

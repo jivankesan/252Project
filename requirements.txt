@@ -3,3 +3,5 @@ matplotlib
 soundfile
 sounddevice
 scipy
+pystoi
+librosa
